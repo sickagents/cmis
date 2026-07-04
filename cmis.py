@@ -12,6 +12,18 @@ from concurrent.futures import ThreadPoolExecutor, as_completed
 
 from curl_cffi import requests
 
+DEFAULT_PROXIES = [
+    "http://cwandtrc-rotate:o6s1e06fjwev@p.webshare.io:80",
+    "http://bjhdfoei-rotate:35vzxbtltpmq@p.webshare.io:80",
+    "http://qpcyslfn-rotate:rfruyupsm66k@p.webshare.io:80",
+    "http://ehxtenxr-rotate:60xxi4qgmehg@p.webshare.io:80",
+]
+
+
+def get_proxy(worker_id: int) -> str:
+    return DEFAULT_PROXIES[worker_id % len(DEFAULT_PROXIES)]
+
+
 lock = threading.Lock()
 success_count = 0
 
@@ -220,12 +232,13 @@ def run_one(worker_id: int, output_file: str, proxy: str = None) -> bool:
     global success_count
     try:
         time.sleep(random.uniform(0, 3))
-        mail = MailTM(proxy=proxy)
+        use_proxy = proxy or get_proxy(worker_id)
+        mail = MailTM(proxy=use_proxy)
         if not mail.create_account():
             print(f"  [W{worker_id:02d}] Email creation failed")
             return False
 
-        bot = MistralBot(proxy=proxy)
+        bot = MistralBot(proxy=use_proxy)
         fn, ln = mail._rnd(6), mail._rnd(6)
 
         vf = bot.register(mail.address, mail.password, fn, ln)
