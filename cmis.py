@@ -32,9 +32,13 @@ class MailTM:
     def _rnd(length=10):
         return "".join(random.choices(string.ascii_lowercase + string.digits, k=length))
 
-    def create_account(self):
-        req = self.session.get(f"{self.api_url}/domains")
-        if req.status_code != 200:
+    def create_account(self, retries=3):
+        for attempt in range(retries):
+            req = self.session.get(f"{self.api_url}/domains")
+            if req.status_code == 200:
+                break
+            time.sleep(random.uniform(2, 5))
+        else:
             return False
         try:
             data = req.json()
@@ -45,12 +49,18 @@ class MailTM:
             return False
         domain = domains[0]["domain"]
         self.address = f"{self._rnd(8)}@{domain}"
-        req = self.session.post(
-            f"{self.api_url}/accounts",
-            json={"address": self.address, "password": self.password},
-        )
-        if req.status_code in (200, 201):
-            return self._get_token()
+        for attempt in range(3):
+            req = self.session.post(
+                f"{self.api_url}/accounts",
+                json={"address": self.address, "password": self.password},
+            )
+            if req.status_code in (200, 201):
+                return self._get_token()
+            if req.status_code == 429:
+                wait = random.uniform(5, 15)
+                time.sleep(wait)
+                continue
+            time.sleep(random.uniform(1, 3))
         return False
 
     def _get_token(self):
@@ -206,6 +216,8 @@ def run_one(worker_id: int, output_file: str) -> bool:
     """Run one account creation cycle. Returns True if API key obtained."""
     global success_count
     try:
+        # Stagger start to avoid rate limit
+        time.sleep(random.uniform(0, 3))
         mail = MailTM()
         if not mail.create_account():
             print(f"  [W{worker_id:02d}] Email creation failed")
