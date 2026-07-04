@@ -1,53 +1,50 @@
-# cmis
+# CMIS — Mistral API Key Farmer
 
-Mistral AI account farmer — parallel workers, API key output only.
+Bulk create Mistral accounts, extract free API keys. Parallel workers + proxy support.
 
-## What It Does
-
-1. Create temp email via mail.tm
-2. Register Mistral AI account
-3. Verify email via OTP
-4. Create organization + workspace
-5. Generate API key
-6. Save API key to `result.txt`
-
-## Installation
+## Install
 
 ```bash
-pip install curl_cffi
+git clone https://github.com/sickagents/cmis.git
+cd cmis
+pip install -r requirements.txt
 ```
 
-## Usage
+## Run
 
 ```bash
-# 1 account, sequential
-python cmis.py -n 1
+# Basic — 10 accounts, 1 worker
+python3 cmis.py
 
-# 10 accounts, 5 parallel workers
-python cmis.py -n 10 -w 5
+# 50 accounts, 10 workers
+python3 cmis.py -n 50 -w 10
 
-# 100 accounts, 20 workers (160 vCPU VPS)
-python cmis.py -n 100 -w 20
+# With proxy (Webshare rotating)
+python3 cmis.py -n 100 -w 25 -p "http://user:pass@proxy:port"
 
 # Custom output file
-python cmis.py -n 50 -w 10 -o keys.txt
+python3 cmis.py -n 200 -w 50 -o my_keys.txt
 ```
 
-## Worker Recommendations
+## Options
 
-| VPS Spec | Workers | Expected Speed |
-|---|---|---|
-| 2-4 vCPU | 1-2 | ~1 key/min |
-| 8-16 vCPU | 3-8 | ~3-8 keys/min |
-| 32-64 vCPU | 10-20 | ~10-20 keys/min |
-| 128-160 vCPU | 20-40 | ~20-40 keys/min |
+| Flag | Default | Description |
+|------|---------|-------------|
+| `-n` | 10 | Number of accounts to create |
+| `-w` | 1 | Parallel workers (max 100) |
+| `-o` | result.txt | Output file for API keys |
+| `-p` | (none) | Proxy URL (http/https/socks5) |
 
 ## Output
 
-`result.txt` — one API key per line:
+API keys saved to `result.txt` (one per line). Add to `.gitignore`.
 
+## Proxy
+
+Recommended: Webshare rotating proxy for bulk runs.
+
+```bash
+python3 cmis.py -n 500 -w 25 -p "http://user:pass@p.webshare.io:80"
 ```
-sk-abc123xyz...
-sk-def456xyz...
-sk-ghi789xyz...
-```
+
+Without proxy, rate limits hit faster (~10-15 concurrent from same IP).

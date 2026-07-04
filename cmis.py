@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Mistral AI account farmer — parallel workers, API key output only."""
+"""Mistral AI account farmer — parallel workers, proxy support, API key output only."""
 
 import argparse
 import json
@@ -17,9 +17,11 @@ success_count = 0
 
 
 class MailTM:
-    def __init__(self):
+    def __init__(self, proxy=None):
         self.api_url = "https://api.mail.tm"
         self.session = requests.Session(impersonate="chrome120")
+        if proxy:
+            self.session.proxies = {"http": proxy, "https": proxy}
         self.session.headers.update({
             "accept": "application/json",
             "content-type": "application/json",
@@ -106,8 +108,10 @@ class MailTM:
 
 
 class MistralBot:
-    def __init__(self):
+    def __init__(self, proxy=None):
         self.session = requests.Session(impersonate="chrome120")
+        if proxy:
+            self.session.proxies = {"http": proxy, "https": proxy}
         self.base_url = "https://auth.mistral.ai"
         self.admin_url = "https://admin.mistral.ai"
         self.session.headers.update({
@@ -212,18 +216,16 @@ class MistralBot:
         return None
 
 
-def run_one(worker_id: int, output_file: str) -> bool:
-    """Run one account creation cycle. Returns True if API key obtained."""
+def run_one(worker_id: int, output_file: str, proxy: str = None) -> bool:
     global success_count
     try:
-        # Stagger start to avoid rate limit
         time.sleep(random.uniform(0, 3))
-        mail = MailTM()
+        mail = MailTM(proxy=proxy)
         if not mail.create_account():
             print(f"  [W{worker_id:02d}] Email creation failed")
             return False
 
-        bot = MistralBot()
+        bot = MistralBot(proxy=proxy)
         fn, ln = mail._rnd(6), mail._rnd(6)
 
         vf = bot.register(mail.address, mail.password, fn, ln)
@@ -271,17 +273,21 @@ def run_one(worker_id: int, output_file: str) -> bool:
 def main():
     parser = argparse.ArgumentParser(description="Mistral API Key Farmer")
     parser.add_argument("-n", "--count", type=int, default=10, help="Number of accounts")
-    parser.add_argument("-w", "--workers", type=int, default=1, help="Parallel workers (max 50)")
+    parser.add_argument("-w", "--workers", type=int, default=1, help="Parallel workers (max 100)")
     parser.add_argument("-o", "--output", type=str, default="result.txt", help="Output file")
+    parser.add_argument("-p", "--proxy", type=str, default="", help="Proxy URL (http/socks5)")
     args = parser.parse_args()
 
-    workers = min(args.workers, 50)
+    workers = min(args.workers, 100)
     count = args.count
+    proxy = args.proxy if args.proxy else None
 
     print(f"{'=' * 55}")
     print(f"  CMIS — Mistral API Key Farmer")
     print(f"  Target: {count} keys | Workers: {workers}")
     print(f"  Output: {args.output}")
+    if proxy:
+        print(f"  Proxy:  {proxy[:30]}...")
     print(f"{'=' * 55}\n")
 
     global success_count
@@ -292,12 +298,10 @@ def main():
         futures = {}
         submitted = 0
 
-        # Submit initial batch
         for i in range(min(count, workers)):
-            futures[pool.submit(run_one, i + 1, args.output)] = i + 1
+            futures[pool.submit(run_one, i + 1, args.output, proxy)] = i + 1
             submitted += 1
 
-        # Refill as workers finish
         while futures:
             done_fut = next(as_completed(futures))
             wid = futures.pop(done_fut)
@@ -306,7 +310,7 @@ def main():
                 failed += 1
 
             if submitted < count:
-                futures[pool.submit(run_one, wid, args.output)] = wid
+                futures[pool.submit(run_one, wid, args.output, proxy)] = wid
                 submitted += 1
 
     print(f"\n{'=' * 55}")
