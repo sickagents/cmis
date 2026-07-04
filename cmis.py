@@ -275,7 +275,7 @@ def main():
     parser.add_argument("-n", "--count", type=int, default=10, help="Number of accounts")
     parser.add_argument("-w", "--workers", type=int, default=1, help="Parallel workers (max 100)")
     parser.add_argument("-o", "--output", type=str, default="result.txt", help="Output file")
-    parser.add_argument("-p", "--proxy", type=str, default="", help="Proxy URL (http/socks5)")
+    parser.add_argument("-p", "--proxy", type=str, default="http://cwandtrc-rotate:o6s1e06fjwev@p.webshare.io:80", help="Proxy URL (http/socks5)")
     args = parser.parse_args()
 
     workers = min(args.workers, 100)
